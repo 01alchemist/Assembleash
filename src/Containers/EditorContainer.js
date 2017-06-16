@@ -3,10 +3,11 @@ import React, { Component }  from "react"
 import PropTypes             from 'prop-types'
 import ReactDOM              from "react-dom"
 import SplitPane             from 'react-split-pane'
-import Script                from 'react-load-script'
 import { NotificationStack } from 'react-notification'
 import { throttle }          from 'throttle-debounce'
 import FileSaver             from 'file-saver'
+
+import $script               from 'scriptjs'
 
 import ToolbarContainer from './ToolbarContainer'
 import Editor           from '../Components/Editor'
@@ -71,13 +72,12 @@ export default class EditorContainer extends Component {
          this._lastTextInput     = '';
          this._compileTimerDelay = null;
          this._cachedClientRect  = null;
-
-         this.changeCompiler(props.compiler);
     }
 
     componentDidMount() {
         this.updateWindowDimensions();
         window.addEventListener("resize", this.updateWindowDimensions);
+        this.changeCompiler();
     }
 
     componentWillUnmount() {
@@ -105,12 +105,12 @@ export default class EditorContainer extends Component {
     updateCompilation = () => {
         if (!this.inputEditor) return;
 
+        console.clear();
         this.removeAllNotification();
         this.removeAllAnnotation();
 
         const {
             compiler,
-            //stdlib,
             longMode,
             validate,
             optimize,
@@ -141,7 +141,11 @@ export default class EditorContainer extends Component {
                         break;
 
                     case 'Speedy.js':
-                        this.compileBySpeedyJs(inputCode, { optimize, unsafe, saveWast: true });
+                        this.compileBySpeedyJs(inputCode, {
+                            unsafe,
+                            optimizationLevel: optimize ? 3 : 0,
+                            saveWast: true
+                        });
                         break;
 
                     default: console.warn('Compiler not supported');
@@ -205,8 +209,15 @@ export default class EditorContainer extends Component {
 
             } else {
                 setImmediate(() => {
-                    if (validate)
-                        module.validate();
+                    if (validate) {
+                        if (!module.validate()) {
+                            let notValid = 'Wasm validation error';
+                            console.error(notValid);
+                            this.addNotification(notValid);
+                            this._errorCounts = 1;
+                            return;
+                        }
+                    }
 
                     if (optimize)
                         module.optimize();
@@ -232,7 +243,61 @@ export default class EditorContainer extends Component {
     }
 
     compileByTurboScript(code, options) {
-        // TODO
+        const turbo = window.turboscript;
+        const result = turbo.compileString(code, {
+            target:   turbo.CompileTarget.WEBASSEMBLY,
+            silent:   true,
+            logError: true
+        });
+
+        if (!result.success) {
+            this.setState({
+                compileSuccess: false,
+                compileFailure: true
+            });
+            setImmediate(() => {
+                let diagnostic = result.log.first;
+                let errorCount = 0;
+                let errorMessage;
+                while (diagnostic != null) {
+                    const location = diagnostic.range.source.indexToLineColumn(diagnostic.range.start);
+                    errorMessage = `[${location.line + 1}:${location.column + 1}] `;
+                    errorMessage += diagnostic.kind === turbo.DiagnosticKind.ERROR ? "ERROR: " : "WARN: ";
+                    errorMessage += diagnostic.message + "\n";
+
+                    if (errorCount <= MaxPrintingErrors) {
+                        this.addNotification(errorMessage);
+                        let annotations = this.state.annotations;
+                        this.setState({
+                            annotations: annotations.add({row: location.line, type: "error", text: errorMessage})
+                        });
+                    }
+
+                    errorCount++;
+                    this._errorCounts++;
+                    diagnostic = diagnostic.next;
+                }
+
+                if (errorCount > MaxPrintingErrors) {
+                    errorMessage = `Too many errors (${errorCount})`;
+                    console.error(errorMessage);
+                    this.addNotification(errorMessage);
+                }
+            });
+
+        } else {
+            setImmediate(() => {
+                this._errorCounts = 0;
+                this.setState({
+                    compileSuccess: true,
+                    compileFailure: false,
+                    output: {
+                        text: result.wast,
+                        binary: result.wasm
+                    }
+                });
+            });
+        }
     }
 
     compileBySpeedyJs(code, options) {
@@ -241,8 +306,6 @@ export default class EditorContainer extends Component {
             this.setState({
                 compilerReady:  true
             });
-
-            //console.log(response);
 
             if (response.length) {
                 const output = response[0];
@@ -289,7 +352,6 @@ export default class EditorContainer extends Component {
         })
         .catch(error => {
             this.setState({
-                compilerReady:  false,
                 compileSuccess: false,
                 compileFailure: true
             });
@@ -323,23 +385,47 @@ export default class EditorContainer extends Component {
     }
 
     changeCompiler = compiler => {
+        this._errorCounts       = 0;
+        this._lastTextInput     = '';
+        this._compileTimerDelay = null;
+
         compiler = compiler || this.state.compiler;
+
+        const description = CompilerDescriptions[compiler];
+
         this.setState({
             compiler,
-            input: CompilerDescriptions[compiler].example
+            input: description.example,
+            compilerReady: false
         });
-        getCompilerVersion(
-            compiler,
-            version => {
-                this.setState({ version });
+
+        if (description.offline) {
+            if (!description.loaded) {
+                $script.order(description.scripts, () => {
+                    this.setState({ compilerReady: true }, () => {
+                        description.loaded = true;
+                        getCompilerVersion(compiler, version => this.setState({ version }));
+                        this.updateCompilation();
+                    });
+                });
+            } else {
+                this.setState({ compilerReady: true }, () => {
+                    getCompilerVersion(compiler, version => this.setState({ version }));
+                    this.updateCompilation();
+                });
             }
-        );
-        if (this.state.compilerReady || !CompilerDescriptions[compiler].offline) {
-            this.updateCompilationWithDelay(AutoCompilationDelay);
+        } else {
+            this.setState({ compilerReady: true }, () => {
+                console.log('loaded');
+
+                getCompilerVersion(compiler, version => this.setState({ version }));
+                this.updateCompilation();
+            });
         }
     }
 
     onScriptLoad = () => {
+        console.log('Compiler', window.assemblyscript);
         this.setState({ compilerReady: true }, () => {
             this.changeCompiler();
         });
@@ -496,11 +582,18 @@ export default class EditorContainer extends Component {
         const canBinaryDownload   = compilerReady && compileSuccess && output.binary;
         const compilerDescription = CompilerDescriptions[compiler];
 
-        const compilerScript = (compilerDescription && compilerDescription.offline ? <Script
-            url={ compilerDescription.url }
-            onError={ this.onScriptError }
-            onLoad={ this.onScriptLoad }
-        /> : null);
+        /*const compilerScripts =
+        (compilerDescription && compilerDescription.offline ?
+        (compilerDescription.scripts.map((script, index) => {
+            console.log(script, index);
+            return <Script
+                key={ index }
+                url={ script.url }
+                onError={ this.onScriptError }
+                onLoad={ index === compilerDescription.scripts.length - 1 ? this.onScriptLoad : void 0 }
+            />
+        }))
+        : null);*/
 
         let busyState = 'busy';
 
@@ -515,7 +608,7 @@ export default class EditorContainer extends Component {
 
         return (
             <div>
-                { compilerScript }
+                {/* { compilerScripts } */}
 
                 <ToolbarContainer
                     ref={ self => this.toolbar = self }

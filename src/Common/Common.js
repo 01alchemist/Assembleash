@@ -4,14 +4,26 @@ export const CompileModes = ['Auto', 'Manual', 'Decompile'];
 export const CompilerDescriptions = {
     'TurboScript': {
         offline: true,
-        url:     'compilers/Turboscript/index.js',
+        scripts:  [
+            'https://rawgit.com/01alchemist/TurboScript/master/lib/turboscript.js'
+        ],
+        loaded: false,
         github:  'https://github.com/01alchemist/TurboScript',
-        options: {}
+        options: {},
+        example:
+`export function fib(num: int32): int32 {
+    if (num <= 1) return 1;
+    return fib(num - 1) + fib(num - 2);
+}`
     },
 
     'AssemblyScript': {
         offline: true,
-        url:    'compilers/AssemblyScript/assemblyscript.min.js',
+        scripts: [
+            'https://rawgit.com/dcodeIO/binaryen.js/master/index.js',
+            'https://rawgit.com/dcodeIO/AssemblyScript/master/dist/assemblyscript.min.js'
+        ],
+        loaded: false,
         github: 'https://github.com/dcodeIO/AssemblyScript',
         options: {
             // detect automatically
@@ -138,7 +150,8 @@ export function anyExists(array, value) {
 export function getCompilerVersion(compiler, callback = () => {}) {
     switch (compiler) {
         case 'TurboScript':
-            callback('1.0.0-beta');
+            if (window.turboscript)
+                callback(window.turboscript.default.version);
             return;
 
         case 'AssemblyScript':
@@ -214,6 +227,6 @@ export function requestCommand(url, config = null) {
         method: config ? 'POST' : 'GET',
         body:   config ? JSON.stringify(config) : void 0
     })
-    //.then(checkResponseStatus)
+    .then(checkResponseStatus)
     .then(response => response.json());
 }
