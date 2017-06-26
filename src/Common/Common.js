@@ -1,43 +1,49 @@
 
-export const CompileModes = ['Auto', 'Manual', 'Decompile'];
+export const CompileMode = {
+    Auto:   0,
+    Manual: 1
+};
+
+export const CompileModes = Object.keys(CompileMode);
 
 export const CompilerDescriptions = {
     'TurboScript': {
         offline: true,
-        scripts:  [
+        scripts: [
             'https://rawgit.com/01alchemist/TurboScript/master/lib/turboscript.min.js'
         ],
         loaded: false,
         github:  'https://github.com/01alchemist/TurboScript',
         options: {},
         example:
-`export function fib(num: int32): int32 {
-    if (num <= 1) return 1;
-    return fib(num - 1) + fib(num - 2);
+`export function fib(n: int32): int32 {
+    if (n <= 1) return 1;
+    return fib(n - 1) + fib(n - 2);
 }`
     },
 
     'AssemblyScript': {
         offline: true,
         scripts: [
-            'https://rawgit.com/dcodeIO/binaryen.js/master/index.js',
-            'https://rawgit.com/dcodeIO/AssemblyScript/master/dist/assemblyscript.min.js'
+            //'https://rawgit.com/dcodeIO/binaryen.js/master/index.js',
+            //'https://rawgit.com/dcodeIO/wabt.js/master/index.js',
+            //'https://rawgit.com/dcodeIO/AssemblyScript/master/dist/assemblyscript.js'
+            //'https://rawgit.com/MaxGraey/AssemblyScript/new-webpack-config/dist/assemblyscript.js'
         ],
         loaded: false,
         github: 'https://github.com/dcodeIO/AssemblyScript',
         options: {
-            // detect automatically
-            /*stdlib: {
-                label:   'Library',
-                default: false
-            },*/
             longMode: {
                 label:   'Use 64 bits',
                 default: false
             },
+            exportMalloc: {
+                label:   'Export malloc',
+                default: false
+            },
             validate: {
                 label:   'Validate',
-                default: false
+                default: true
             },
             optimize: {
                 label:   'Optimize',
@@ -45,9 +51,9 @@ export const CompilerDescriptions = {
             }
         },
         example:
-`export function fib(num: int32): int32 {
-    if (num <= 1) return 1;
-    return fib(num - 1) + fib(num - 2);
+`export function fib(n: int32): int32 {
+    if (n <= 1) return 1;
+    return fib(n - 1) + fib(n - 2);
 }`
     },
 
@@ -84,24 +90,15 @@ export const CompilerDescriptions = {
         },
         example:
 `
-async function fib(value: int): Promise<int> {
+function fibSync(n: int): int {
     "use speedyjs";
-
-    return fibSync(value);
+    if (n <= 1) return 1;
+    return fibSync(n - 1) + fibSync(n - 2);
 }
 
-function fibSync(value: int): int {
+async function fib(n: int): Promise<int> {
     "use speedyjs";
-
-    if (value <= 2) {
-        return 1;
-    }
-
-    return fibSync(value - 2) + fibSync(value - 1);
-}
-
-async function main() {
-    console.log(await fib(40));
+    return fibSync(n);
 }
 `
     }
@@ -181,20 +178,20 @@ export function formatCode(buffer) {
     // format binary data
     const last = buffer.length;
 
-    let output = 'new Uint8Array([\r\n    ';
-    output += Array.prototype.map.call(buffer, (value, index) => {
-        let result = '0x' + ('00' + value.toString(16)).slice(-2);
+    let output = 'new Uint8Array([\n    ';
+    for (let i = 0, len = buffer.length; i < len; i++) {
+        const value = buffer[i];
+        let result = '0x' + ('00' + value.toString(16)).substr(-2);
 
-        index++;
-        if (index !== last)
+        if (i !== last - 1)
             result += ', ';
 
-        if ((index % 10) === 0)
-            result += '\r\n    ';
+        if (((i + 1) % 10) === 0)
+            result += '\n    ';
 
-        return result;
-    }).join('');
-    output += '\r\n]);';
+        output += result;
+    }
+    output += '\n]);';
 
     return output;
 }

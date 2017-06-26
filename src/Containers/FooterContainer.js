@@ -7,17 +7,21 @@ import {
     ButtonToolbar
 } from 'react-bootstrap';
 
-import BusySignal from './BusySignal';
+import BusySignal from '../Components/BusySignal';
 
-export default class Footer extends Component {
+export default class FooterContainer extends Component {
     static propTypes = {
         downloadDisabled:  PropTypes.bool,
-        onDownloadPressed: PropTypes.func
+        onDownloadPressed: PropTypes.func,
+        errorMessage:      PropTypes.string,
+        cursorPosition:    PropTypes.arrayOf(PropTypes.number, PropTypes.number)
     }
 
     static defaultProps = {
         busyState: 'busy',
         downloadDisabled: true,
+        errorMessage: null,
+        cursorPosition: [0, 0],
         onDownloadPressed: () => {}
     }
 
@@ -27,13 +31,14 @@ export default class Footer extends Component {
             onDownloadPressed,
             downloadDisabled,
             busyState,
-            errorCount
+            cursorPosition,
+            errorCount,
+            errorMessage
         } = this.props;
 
         const sizeUnits = binarySize.split(' ');
-
-        if (!sizeUnits[0]) sizeUnits[0] = '';
-        if (!sizeUnits[1]) sizeUnits[1] = '';
+        const size = sizeUnits[0] ? sizeUnits[0] : '';
+        const unit = sizeUnits[1] ? sizeUnits[1] : '';
 
         let statusBarMessage = '';
         let messageClass = 'busy-success-color';
@@ -43,22 +48,36 @@ export default class Footer extends Component {
         } else if (busyState === 'success') {
             statusBarMessage = 'Compiled successfully';
         } else if (busyState === 'failure') {
-            messageClass = 'busy-filure-color';
+            messageClass = 'busy-failure-color';
             statusBarMessage = `(${errorCount}) Error${errorCount > 1 ? 's' : ''}`;
+            if (errorMessage) {
+                statusBarMessage += ': ' + errorMessage;
+            }
         }
 
         return (
-            <ButtonToolbar className="navbar-fixed-bottom" style={{ padding: 0, margin: '20px 20px 7px 15px' }}>
+            <ButtonToolbar className="navbar-fixed-bottom" style={{ textAlign: 'center', padding: 0, margin: '20px 20px 7px 15px' }}>
                 <Button bsSize='large' bsStyle='info' className="pull-right" disabled={ downloadDisabled } onClick={ onDownloadPressed }>
                     <span><Glyphicon glyph="download" style={{ fontSize: "125%", marginTop: '-0.5rem', top: '0.5rem' }}/>Download .wasm</span>
                 </Button>
                 <div className="pull-right label">
-                    <h4>{ sizeUnits[0] }
-                        <span style={{ color: '#bbb', paddingRight: '2rem', fontWeight: 100 }}>{ ' ' + sizeUnits[1] }</span>
+                    <h4>{ size }
+                        <span style={{ color: '#bbb', paddingRight: '1em', fontWeight: 100 }}>{ ' ' + unit }</span>
                     </h4>
                 </div>
-                <BusySignal state={ busyState }>
-                </BusySignal>
+                <label style={{ paddingTop: '2pt' }}>
+                    <h4>
+                        <span style={{ fontWeight: 100, color: '#bbb' }}>
+                            { 'Line: ' }
+                        </span>
+                        { cursorPosition[0] }
+                        <span style={{ fontWeight: 100, color: '#bbb', paddingLeft: '20px' }}>
+                            { 'Column: ' }
+                        </span>
+                        { cursorPosition[1] }
+                    </h4>
+                </label>
+                <BusySignal state={ busyState }/>
                 <label style={{
                     marginLeft: '55px',
                     float:      'left',
@@ -70,7 +89,8 @@ export default class Footer extends Component {
                         style={{
                             fontWeight: 100,
                             textShadow: '0 0 1px rgba(0,0,0,0.6)'
-                        }} >{ statusBarMessage }</h4>
+                        }}
+                    >{ statusBarMessage }</h4>
                 </label>
             </ButtonToolbar>
         );

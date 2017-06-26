@@ -1,4 +1,38 @@
 
+.fork-me {
+    margin-right: 16px;
+    margin-top:   5px;
+    padding:      0;
+}
+
+.fork-me .github-octicon-mark {
+    fill: #999;
+    width:  42px;
+    height: 42px;
+    -moz-transition: fill .2s ease-in;
+    -o-transition: fill .2s ease-in;
+    -webkit-transition: fill .2s ease-in;
+    transition: fill .2s ease-in;
+}
+
+.fork-me .github-octicon-mark:hover {
+    fill: #fff;
+}
+
+.fork-me a {
+    position: relative;
+    display: block;
+    width:  100%;
+    height: 100%;
+    outline: none;
+}
+
+.logo {
+    margin-top: -0.9em;
+    margin-right: 2rem;
+    text-align: center;
+}
+
 .icon-binary-code:before {
     -webkit-font-smoothing: antialiased;
     content: "\e900";
@@ -61,7 +95,7 @@
     border-color: #5bb85d;
 }
 
-.busy-filure-color {
+.busy-failure-color {
     color: #ff6836;
     border-color: #ff6836;
 }
@@ -78,6 +112,7 @@
     height: 18px;
     border-radius: 10px;
     border: 1pt solid;
+    box-sizing: border-box;
 }
 
 .busy-signal .busy-signal-mask {

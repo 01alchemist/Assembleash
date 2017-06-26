@@ -1,5 +1,7 @@
 ### [Assembleash Playground](https://maxgraey.github.io/Assembleash/#AssemblyScript)
 
+[![](https://tokei.rs/b1/github/MaxGraey/Assembleash?style=flat-square)](https://github.com/MaxGraey/Assembleash)
+
 Playground for WebAssembly and Typescript-like languages.
 
 **Support languges:**
@@ -7,17 +9,8 @@ Playground for WebAssembly and Typescript-like languages.
 - [AssemblyScript](https://maxgraey.github.io/Assembleash/#AssemblyScript)
 - [Speedy.js](https://maxgraey.github.io/Assembleash/#Speedy.js)
 
-**KNOWN ISSUES**
-- After change compiler you should refresh page for updating input editor.
-
 **TODO**
 
-- ~~Add wast syntax~~
-- ~~Improve typescript syntax~~
-- ~~Improve wast syntax~~
-
-- Switch to monaco-editor
-- Add custom webpack config with Prepack plugin
 - Additional status info like compiling time
 - Optimize content for mobile browsers
 
